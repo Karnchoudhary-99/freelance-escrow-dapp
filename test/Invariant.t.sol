@@ -181,3 +181,66 @@ contract EscrowInvariantTest is Test {
         assertEq(a2, 3 ether);
     }
 }
+
+/// @notice Handler creating escrows through the factory.
+contract FactoryHandler is Test {
+    EscrowFactory public factory;
+    address public client;
+    address public freelancer;
+    uint256 public created;
+
+    constructor(address _client, address _freelancer) {
+        client = _client;
+        freelancer = _freelancer;
+        factory = new EscrowFactory();
+    }
+
+    function createEscrow() external {
+        address arbiter = makeAddr("arbiter");
+        string[] memory descriptions = new string[](2);
+        descriptions[0] = "a";
+        descriptions[1] = "b";
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 1 ether;
+        amounts[1] = 1 ether;
+        vm.prank(client);
+        factory.createEscrow(freelancer, arbiter, descriptions, amounts, block.timestamp + 7 days);
+        created++;
+    }
+}
+
+/// @notice Factory registry invariants: the on-chain count and the
+///         per-user lists must track exactly the escrows created.
+contract FactoryInvariantTest is Test {
+    FactoryHandler public handler;
+    EscrowFactory public factory;
+    address public client;
+    address public freelancer;
+
+    function setUp() public {
+        client = makeAddr("client");
+        freelancer = makeAddr("freelancer");
+        handler = new FactoryHandler(client, freelancer);
+        factory = handler.factory();
+
+        bytes4[] memory selectors = new bytes4[](1);
+        selectors[0] = FactoryHandler.createEscrow.selector;
+        targetSelector(FuzzSelector({addr: address(handler), selectors: selectors}));
+        targetContract(address(handler));
+    }
+
+    function invariant_registry_tracks_created() public view {
+        assertEq(factory.escrowCount(), handler.created());
+        assertEq(factory.escrowsFor(client).length, handler.created());
+        assertEq(factory.escrowsFor(freelancer).length, handler.created());
+    }
+
+    function invariant_registered_escrows_belong_to_client() public view {
+        for (uint256 i = 0; i < factory.escrowCount(); i++) {
+            FreelanceEscrow escrow = factory.escrows(i);
+            assertEq(escrow.client(), client);
+            assertEq(escrow.freelancer(), freelancer);
+            assertEq(escrow.totalAmount(), 2 ether);
+        }
+    }
+}
