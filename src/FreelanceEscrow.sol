@@ -226,6 +226,48 @@ contract FreelanceEscrow {
     }
 
     // ------------------------------------------------------------------------
+    // Disputes
+    // ------------------------------------------------------------------------
+
+    /// @notice Either the client or the freelancer can freeze payouts when
+    ///         they disagree. The arbiter then rules via `resolveDispute`.
+    /// @param reason Short human-readable reason, stored on-chain.
+    function raiseDispute(string calldata reason)
+        external
+        inStatus(Status.Funded)
+    {
+        if (msg.sender != client && msg.sender != freelancer) revert NotParty();
+        status = Status.Disputed;
+        disputeReason = reason;
+        emit DisputeRaised(msg.sender, reason);
+    }
+
+    /// @notice Arbiter splits the unreleased balance between freelancer and
+    ///         client. The two amounts must add up to exactly the remaining
+    ///         balance, so the ruling is fully transparent on-chain.
+    /// @param freelancerAmount ETH (wei) awarded to the freelancer.
+    /// @param clientRefund ETH (wei) refunded to the client.
+    function resolveDispute(uint256 freelancerAmount, uint256 clientRefund)
+        external
+        onlyArbiter
+        inStatus(Status.Disputed)
+        nonReentrant
+    {
+        uint256 remaining = remainingBalance();
+        if (freelancerAmount + clientRefund != remaining) {
+            revert WrongFundingAmount(remaining, freelancerAmount + clientRefund);
+        }
+
+        // Effects before interaction.
+        status = Status.Resolved;
+        releasedAmount = totalAmount;
+
+        if (freelancerAmount > 0) _payout(freelancer, freelancerAmount);
+        if (clientRefund > 0) _payout(client, clientRefund);
+        emit DisputeResolved(msg.sender, freelancerAmount, clientRefund);
+    }
+
+    // ------------------------------------------------------------------------
     // Views
     // ------------------------------------------------------------------------
 
