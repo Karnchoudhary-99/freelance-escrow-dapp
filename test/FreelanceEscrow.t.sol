@@ -89,11 +89,7 @@ contract FundingTest is EscrowFixture {
 
     function test_fund_rejects_wrong_amount() public {
         vm.prank(client);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                FreelanceEscrow.WrongFundingAmount.selector, 6 ether, 5 ether
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(FreelanceEscrow.WrongFundingAmount.selector, 6 ether, 5 ether));
         escrow.fund{value: 5 ether}();
     }
 
@@ -109,9 +105,7 @@ contract FundingTest is EscrowFixture {
         vm.prank(client);
         vm.expectRevert(
             abi.encodeWithSelector(
-                FreelanceEscrow.WrongStatus.selector,
-                FreelanceEscrow.Status.Created,
-                FreelanceEscrow.Status.Funded
+                FreelanceEscrow.WrongStatus.selector, FreelanceEscrow.Status.Created, FreelanceEscrow.Status.Funded
             )
         );
         escrow.fund{value: 6 ether}();
@@ -130,9 +124,7 @@ contract FundingTest is EscrowFixture {
         vm.prank(client);
         vm.expectRevert(
             abi.encodeWithSelector(
-                FreelanceEscrow.WrongStatus.selector,
-                FreelanceEscrow.Status.Created,
-                FreelanceEscrow.Status.Funded
+                FreelanceEscrow.WrongStatus.selector, FreelanceEscrow.Status.Created, FreelanceEscrow.Status.Funded
             )
         );
         escrow.cancel();
@@ -173,9 +165,7 @@ contract MilestoneTest is EscrowFixture {
         vm.prank(freelancer);
         vm.expectRevert(
             abi.encodeWithSelector(
-                FreelanceEscrow.WrongStatus.selector,
-                FreelanceEscrow.Status.Funded,
-                FreelanceEscrow.Status.Created
+                FreelanceEscrow.WrongStatus.selector, FreelanceEscrow.Status.Funded, FreelanceEscrow.Status.Created
             )
         );
         escrow.submitMilestone(0);
@@ -184,18 +174,14 @@ contract MilestoneTest is EscrowFixture {
     function test_submit_rejects_out_of_range() public {
         _fund();
         vm.prank(freelancer);
-        vm.expectRevert(
-            abi.encodeWithSelector(FreelanceEscrow.MilestoneOutOfRange.selector, 7)
-        );
+        vm.expectRevert(abi.encodeWithSelector(FreelanceEscrow.MilestoneOutOfRange.selector, 7));
         escrow.submitMilestone(7);
     }
 
     function test_approve_rejects_unsubmitted() public {
         _fund();
         vm.prank(client);
-        vm.expectRevert(
-            abi.encodeWithSelector(FreelanceEscrow.MilestoneNotSubmitted.selector, 0)
-        );
+        vm.expectRevert(abi.encodeWithSelector(FreelanceEscrow.MilestoneNotSubmitted.selector, 0));
         escrow.approveMilestone(0);
     }
 
@@ -236,15 +222,11 @@ contract MilestoneTest is EscrowFixture {
         escrow.approveMilestone(0);
         // Re-submitting an approved milestone reverts at submit time...
         vm.prank(freelancer);
-        vm.expectRevert(
-            abi.encodeWithSelector(FreelanceEscrow.MilestoneAlreadyApproved.selector, 0)
-        );
+        vm.expectRevert(abi.encodeWithSelector(FreelanceEscrow.MilestoneAlreadyApproved.selector, 0));
         escrow.submitMilestone(0);
         // ...and so does re-approving it.
         vm.prank(client);
-        vm.expectRevert(
-            abi.encodeWithSelector(FreelanceEscrow.MilestoneAlreadyApproved.selector, 0)
-        );
+        vm.expectRevert(abi.encodeWithSelector(FreelanceEscrow.MilestoneAlreadyApproved.selector, 0));
         escrow.approveMilestone(0);
     }
 
@@ -327,9 +309,7 @@ contract DisputeTest is EscrowFixture {
         vm.prank(client);
         vm.expectRevert(
             abi.encodeWithSelector(
-                FreelanceEscrow.WrongStatus.selector,
-                FreelanceEscrow.Status.Funded,
-                FreelanceEscrow.Status.Disputed
+                FreelanceEscrow.WrongStatus.selector, FreelanceEscrow.Status.Funded, FreelanceEscrow.Status.Disputed
             )
         );
         escrow.approveMilestone(0);
@@ -340,11 +320,7 @@ contract DisputeTest is EscrowFixture {
         vm.prank(client);
         escrow.raiseDispute("x");
         vm.prank(arbiter);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                FreelanceEscrow.WrongFundingAmount.selector, 6 ether, 5 ether
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(FreelanceEscrow.WrongFundingAmount.selector, 6 ether, 5 ether));
         escrow.resolveDispute(2 ether, 3 ether); // sums to 5, not 6
     }
 
@@ -362,9 +338,7 @@ contract DisputeTest is EscrowFixture {
         vm.prank(arbiter);
         vm.expectRevert(
             abi.encodeWithSelector(
-                FreelanceEscrow.WrongStatus.selector,
-                FreelanceEscrow.Status.Disputed,
-                FreelanceEscrow.Status.Funded
+                FreelanceEscrow.WrongStatus.selector, FreelanceEscrow.Status.Disputed, FreelanceEscrow.Status.Funded
             )
         );
         escrow.resolveDispute(0, 6 ether);
@@ -426,11 +400,7 @@ contract FactoryTest is Test {
         factory = new EscrowFactory();
     }
 
-    function _terms()
-        internal
-        pure
-        returns (string[] memory descriptions, uint256[] memory amounts)
-    {
+    function _terms() internal pure returns (string[] memory descriptions, uint256[] memory amounts) {
         descriptions = new string[](2);
         descriptions[0] = "a";
         descriptions[1] = "b";
@@ -442,8 +412,7 @@ contract FactoryTest is Test {
     function test_factory_creates_and_registers() public {
         (string[] memory d, uint256[] memory a) = _terms();
         vm.prank(client);
-        FreelanceEscrow escrow =
-            factory.createEscrow(freelancer, arbiter, d, a, block.timestamp + 7 days);
+        FreelanceEscrow escrow = factory.createEscrow(freelancer, arbiter, d, a, block.timestamp + 7 days);
 
         assertEq(factory.escrowCount(), 1);
         assertEq(address(factory.escrows(0)), address(escrow));
@@ -463,8 +432,7 @@ contract FactoryTest is Test {
     function test_factory_caller_is_client() public {
         (string[] memory d, uint256[] memory a) = _terms();
         vm.prank(client);
-        FreelanceEscrow escrow =
-            factory.createEscrow(freelancer, arbiter, d, a, block.timestamp + 7 days);
+        FreelanceEscrow escrow = factory.createEscrow(freelancer, arbiter, d, a, block.timestamp + 7 days);
         assertEq(escrow.client(), client);
         assertTrue(escrow.client() != freelancer);
     }

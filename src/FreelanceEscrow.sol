@@ -68,9 +68,7 @@ contract FreelanceEscrow {
     event MilestoneSubmitted(uint256 indexed index, string description);
     event MilestoneApproved(uint256 indexed index, address indexed freelancer, uint256 amount);
     event DisputeRaised(address indexed by, string reason);
-    event DisputeResolved(
-        address indexed arbiter, uint256 freelancerAmount, uint256 clientRefund
-    );
+    event DisputeResolved(address indexed arbiter, uint256 freelancerAmount, uint256 clientRefund);
     event ExpiredRefunded(address indexed client, uint256 amount);
 
     // ------------------------------------------------------------------------
@@ -198,12 +196,7 @@ contract FreelanceEscrow {
     /// @notice Client accepts delivered work and releases that milestone's
     ///         ETH to the freelancer. Completes the escrow when the last
     ///         milestone is approved.
-    function approveMilestone(uint256 index)
-        external
-        onlyClient
-        inStatus(Status.Funded)
-        nonReentrant
-    {
+    function approveMilestone(uint256 index) external onlyClient inStatus(Status.Funded) nonReentrant {
         if (index >= milestones.length) revert MilestoneOutOfRange(index);
         Milestone storage m = milestones[index];
         if (!m.submitted) revert MilestoneNotSubmitted(index);
@@ -232,10 +225,7 @@ contract FreelanceEscrow {
     /// @notice Either the client or the freelancer can freeze payouts when
     ///         they disagree. The arbiter then rules via `resolveDispute`.
     /// @param reason Short human-readable reason, stored on-chain.
-    function raiseDispute(string calldata reason)
-        external
-        inStatus(Status.Funded)
-    {
+    function raiseDispute(string calldata reason) external inStatus(Status.Funded) {
         if (msg.sender != client && msg.sender != freelancer) revert NotParty();
         status = Status.Disputed;
         disputeReason = reason;
@@ -271,12 +261,7 @@ contract FreelanceEscrow {
     ///         balance. Approved milestones are already paid and stay paid;
     ///         only unapproved work is refunded. Guards against a freelancer
     ///         who stops responding.
-    function refundAfterExpiry()
-        external
-        onlyClient
-        inStatus(Status.Funded)
-        nonReentrant
-    {
+    function refundAfterExpiry() external onlyClient inStatus(Status.Funded) nonReentrant {
         if (block.timestamp <= deadline) revert DeadlineNotInFuture();
         uint256 remaining = remainingBalance();
         status = Status.Expired;
