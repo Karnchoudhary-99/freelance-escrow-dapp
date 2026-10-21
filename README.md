@@ -88,9 +88,19 @@ Lifecycle: `Created → Funded → Completed`, with side branches
 forge test -vv
 ```
 
-37 tests: constructor validation, funding/cancel, milestone happy path and
+45 tests: constructor validation, funding/cancel, milestone happy path and
 access control, dispute rulings (release / refund / split), expiry refunds,
-and factory registry. Run in CI on every push.
+and factory registry — plus 8 invariant (fuzz) tests over the escrow
+lifecycle and the factory registry. Run in CI on every push.
+
+### Invariant tests
+
+`test/Invariant.t.sol` drives a funded escrow through random
+submit/approve/dispute/resolve/warp/refund sequences (256 runs, depth 100,
+0 reverts) and checks the solvency properties: payouts never exceed locked
+funds, `balance + released == total` after funding, terminal states drain
+fully, and the factory registry tracks created escrows exactly.
+See `docs/gas-report.md` for the gas snapshot and the invariant list.
 
 ## Roadmap
 
@@ -100,7 +110,7 @@ and factory registry. Run in CI on every push.
 - [x] Deadline + auto-refund on expiry, reentrancy guards, events
 - [x] Foundry test suite: happy path, disputes, edge cases, factory (37 tests)
 - [x] Deploy script + local Anvil demo walkthrough
-- [ ] Gas report + invariant tests (fuzz: payouts never exceed locked funds)
+- [x] Gas report + invariant tests (fuzz: payouts never exceed locked funds)
 - [ ] Self-review, then public
 
 ## License
