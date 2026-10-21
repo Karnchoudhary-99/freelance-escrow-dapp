@@ -62,5 +62,22 @@ contract EscrowHandler is Test {
         escrow.approveMilestone(index);
     }
 
+    function raiseDispute(uint256 seed) external {
+        if (_status() != FreelanceEscrow.Status.Funded) return;
+        // Either party may raise; alternate by seed so both are exercised.
+        address by = seed % 2 == 0 ? client : freelancer;
+        vm.prank(by);
+        escrow.raiseDispute("fuzz dispute");
+    }
+
+    function resolveDispute(uint256 seed) external {
+        if (_status() != FreelanceEscrow.Status.Disputed) return;
+        uint256 remaining = escrow.remainingBalance();
+        uint256 freelancerAmount = remaining == 0 ? 0 : seed % (remaining + 1);
+        uint256 clientRefund = remaining - freelancerAmount;
+        vm.prank(arbiter);
+        escrow.resolveDispute(freelancerAmount, clientRefund);
+    }
+
     // __NEXT_ACTIONS__
 }
