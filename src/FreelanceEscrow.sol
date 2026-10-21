@@ -183,6 +183,49 @@ contract FreelanceEscrow {
     }
 
     // ------------------------------------------------------------------------
+    // Milestones
+    // ------------------------------------------------------------------------
+
+    /// @notice Freelancer marks a milestone's work as delivered.
+    function submitMilestone(uint256 index) external onlyFreelancer inStatus(Status.Funded) {
+        if (index >= milestones.length) revert MilestoneOutOfRange(index);
+        Milestone storage m = milestones[index];
+        if (m.approved) revert MilestoneAlreadyApproved(index);
+        m.submitted = true;
+        emit MilestoneSubmitted(index, m.description);
+    }
+
+    /// @notice Client accepts delivered work and releases that milestone's
+    ///         ETH to the freelancer. Completes the escrow when the last
+    ///         milestone is approved.
+    function approveMilestone(uint256 index)
+        external
+        onlyClient
+        inStatus(Status.Funded)
+        nonReentrant
+    {
+        if (index >= milestones.length) revert MilestoneOutOfRange(index);
+        Milestone storage m = milestones[index];
+        if (!m.submitted) revert MilestoneNotSubmitted(index);
+        if (m.approved) revert MilestoneAlreadyApproved(index);
+
+        // Effects before interaction.
+        m.approved = true;
+        releasedAmount += m.amount;
+        bool allApproved = true;
+        for (uint256 i = 0; i < milestones.length; i++) {
+            if (!milestones[i].approved) {
+                allApproved = false;
+                break;
+            }
+        }
+        if (allApproved) status = Status.Completed;
+
+        _payout(freelancer, m.amount);
+        emit MilestoneApproved(index, freelancer, m.amount);
+    }
+
+    // ------------------------------------------------------------------------
     // Views
     // ------------------------------------------------------------------------
 
