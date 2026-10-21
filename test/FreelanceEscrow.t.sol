@@ -144,3 +144,118 @@ contract FundingTest is EscrowFixture {
         escrow.cancel();
     }
 }
+
+contract MilestoneTest is EscrowFixture {
+    function test_full_happy_path() public {
+        _fund();
+
+        for (uint256 i = 0; i < 3; i++) {
+            vm.prank(freelancer);
+            escrow.submitMilestone(i);
+            vm.prank(client);
+            escrow.approveMilestone(i);
+        }
+
+        assertEq(uint256(escrow.status()), uint256(FreelanceEscrow.Status.Completed));
+        assertEq(escrow.releasedAmount(), 6 ether);
+        assertEq(freelancer.balance, 6 ether);
+        assertEq(address(escrow).balance, 0);
+    }
+
+    function test_submit_rejects_non_freelancer() public {
+        _fund();
+        vm.prank(client);
+        vm.expectRevert(FreelanceEscrow.NotFreelancer.selector);
+        escrow.submitMilestone(0);
+    }
+
+    function test_submit_rejects_unfunded() public {
+        vm.prank(freelancer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                FreelanceEscrow.WrongStatus.selector,
+                FreelanceEscrow.Status.Funded,
+                FreelanceEscrow.Status.Created
+            )
+        );
+        escrow.submitMilestone(0);
+    }
+
+    function test_submit_rejects_out_of_range() public {
+        _fund();
+        vm.prank(freelancer);
+        vm.expectRevert(
+            abi.encodeWithSelector(FreelanceEscrow.MilestoneOutOfRange.selector, 7)
+        );
+        escrow.submitMilestone(7);
+    }
+
+    function test_approve_rejects_unsubmitted() public {
+        _fund();
+        vm.prank(client);
+        vm.expectRevert(
+            abi.encodeWithSelector(FreelanceEscrow.MilestoneNotSubmitted.selector, 0)
+        );
+        escrow.approveMilestone(0);
+    }
+
+    function test_approve_rejects_non_client() public {
+        _fund();
+        vm.prank(freelancer);
+        escrow.submitMilestone(0);
+        vm.prank(freelancer);
+        vm.expectRevert(FreelanceEscrow.NotClient.selector);
+        escrow.approveMilestone(0);
+    }
+
+    function test_approve_pays_single_milestone() public {
+        _fund();
+        uint256 before = freelancer.balance;
+
+        vm.prank(freelancer);
+        escrow.submitMilestone(1);
+
+        vm.expectEmit(true, true, false, true);
+        emit FreelanceEscrow.MilestoneApproved(1, freelancer, 2 ether);
+
+        vm.prank(client);
+        escrow.approveMilestone(1);
+
+        assertEq(freelancer.balance - before, 2 ether);
+        assertEq(escrow.releasedAmount(), 2 ether);
+        assertEq(address(escrow).balance, 4 ether);
+        // Not complete yet: milestones 0 and 2 pending.
+        assertEq(uint256(escrow.status()), uint256(FreelanceEscrow.Status.Funded));
+    }
+
+    function test_approve_rejects_double_approval() public {
+        _fund();
+        vm.prank(freelancer);
+        escrow.submitMilestone(0);
+        vm.prank(client);
+        escrow.approveMilestone(0);
+        // Re-submitting an approved milestone reverts at submit time...
+        vm.prank(freelancer);
+        vm.expectRevert(
+            abi.encodeWithSelector(FreelanceEscrow.MilestoneAlreadyApproved.selector, 0)
+        );
+        escrow.submitMilestone(0);
+        // ...and so does re-approving it.
+        vm.prank(client);
+        vm.expectRevert(
+            abi.encodeWithSelector(FreelanceEscrow.MilestoneAlreadyApproved.selector, 0)
+        );
+        escrow.approveMilestone(0);
+    }
+
+    function test_out_of_order_approval() public {
+        _fund();
+        // Milestones need not be approved in order.
+        vm.prank(freelancer);
+        escrow.submitMilestone(2);
+        vm.prank(client);
+        escrow.approveMilestone(2);
+        assertEq(freelancer.balance, 3 ether);
+        assertEq(uint256(escrow.status()), uint256(FreelanceEscrow.Status.Funded));
+    }
+}
