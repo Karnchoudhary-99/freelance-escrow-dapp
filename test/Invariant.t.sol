@@ -93,3 +93,91 @@ contract EscrowHandler is Test {
     }
 }
 
+
+/// @notice Solvency invariants over the escrow lifecycle.
+/// @dev The core property: payouts never exceed locked funds, and the
+///      contract's balance plus what it has released always accounts for
+///      exactly the funded total once funding has happened.
+contract EscrowInvariantTest is Test {
+    EscrowHandler public handler;
+    FreelanceEscrow public escrow;
+
+    function setUp() public {
+        address client = makeAddr("client");
+        address freelancer = makeAddr("freelancer");
+        address arbiter = makeAddr("arbiter");
+        handler = new EscrowHandler(client, freelancer, arbiter);
+        escrow = handler.escrow();
+
+        bytes4[] memory selectors = new bytes4[](6);
+        selectors[0] = EscrowHandler.submitMilestone.selector;
+        selectors[1] = EscrowHandler.approveMilestone.selector;
+        selectors[2] = EscrowHandler.raiseDispute.selector;
+        selectors[3] = EscrowHandler.resolveDispute.selector;
+        selectors[4] = EscrowHandler.warpPastDeadline.selector;
+        selectors[5] = EscrowHandler.refundAfterExpiry.selector;
+        targetSelector(FuzzSelector({addr: address(handler), selectors: selectors}));
+        targetContract(address(handler));
+    }
+
+    function invariant_released_never_exceeds_total() public view {
+        assertLe(escrow.releasedAmount(), escrow.totalAmount());
+    }
+
+    function invariant_balance_never_exceeds_total() public view {
+        assertLe(address(escrow).balance, escrow.totalAmount());
+    }
+
+    function invariant_funded_accounting() public view {
+        FreelanceEscrow.Status status = escrow.status();
+        if (status == FreelanceEscrow.Status.Created || status == FreelanceEscrow.Status.Cancelled) {
+            return;
+        }
+        // After funding, every wei is either still held or released.
+        assertEq(address(escrow).balance + escrow.releasedAmount(), escrow.totalAmount());
+    }
+
+    function invariant_terminal_states_drain() public view {
+        FreelanceEscrow.Status status = escrow.status();
+        if (
+            status == FreelanceEscrow.Status.Completed || status == FreelanceEscrow.Status.Resolved
+                || status == FreelanceEscrow.Status.Expired
+        ) {
+            assertEq(address(escrow).balance, 0);
+            assertEq(escrow.releasedAmount(), escrow.totalAmount());
+        }
+    }
+
+    function invariant_approved_sum_matches_released_while_active() public view {
+        FreelanceEscrow.Status status = escrow.status();
+        if (status != FreelanceEscrow.Status.Funded && status != FreelanceEscrow.Status.Completed) {
+            return;
+        }
+        // While no dispute/expiry ruling has overwritten releasedAmount,
+        // released must equal exactly the sum of approved milestones.
+        uint256 sum;
+        for (uint256 i = 0; i < 3; i++) {
+            (,, bool submitted, bool approved) = escrow.milestones(i);
+            submitted;
+            if (approved) {
+                (, uint256 amount,,) = escrow.milestones(i);
+                sum += amount;
+            }
+        }
+        assertEq(escrow.releasedAmount(), sum);
+        if (status == FreelanceEscrow.Status.Completed) {
+            assertEq(sum, escrow.totalAmount());
+        }
+    }
+
+    function invariant_terms_immutable() public view {
+        assertEq(escrow.totalAmount(), 6 ether);
+        assertEq(escrow.milestoneCount(), 3);
+        (, uint256 a0,,) = escrow.milestones(0);
+        (, uint256 a1,,) = escrow.milestones(1);
+        (, uint256 a2,,) = escrow.milestones(2);
+        assertEq(a0, 1 ether);
+        assertEq(a1, 2 ether);
+        assertEq(a2, 3 ether);
+    }
+}
