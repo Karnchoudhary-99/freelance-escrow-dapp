@@ -93,7 +93,6 @@ contract EscrowHandler is Test {
     }
 }
 
-
 /// @notice Solvency invariants over the escrow lifecycle.
 /// @dev The core property: payouts never exceed locked funds, and the
 ///      contract's balance plus what it has released always accounts for
