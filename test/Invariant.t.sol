@@ -79,5 +79,17 @@ contract EscrowHandler is Test {
         escrow.resolveDispute(freelancerAmount, clientRefund);
     }
 
-    // __NEXT_ACTIONS__
+    function warpPastDeadline() external {
+        if (block.timestamp < deadline + 1) {
+            vm.warp(deadline + 1);
+        }
+    }
+
+    function refundAfterExpiry() external {
+        if (_status() != FreelanceEscrow.Status.Funded) return;
+        if (block.timestamp <= deadline) return;
+        vm.prank(client);
+        escrow.refundAfterExpiry();
+    }
 }
+
