@@ -267,6 +267,24 @@ contract FreelanceEscrow {
         emit DisputeResolved(msg.sender, freelancerAmount, clientRefund);
     }
 
+    /// @notice After the deadline, the client may reclaim the unreleased
+    ///         balance. Approved milestones are already paid and stay paid;
+    ///         only unapproved work is refunded. Guards against a freelancer
+    ///         who stops responding.
+    function refundAfterExpiry()
+        external
+        onlyClient
+        inStatus(Status.Funded)
+        nonReentrant
+    {
+        if (block.timestamp <= deadline) revert DeadlineNotInFuture();
+        uint256 remaining = remainingBalance();
+        status = Status.Expired;
+        releasedAmount = totalAmount;
+        if (remaining > 0) _payout(client, remaining);
+        emit ExpiredRefunded(client, remaining);
+    }
+
     // ------------------------------------------------------------------------
     // Views
     // ------------------------------------------------------------------------
