@@ -81,6 +81,12 @@ Lifecycle: `Created → Funded → Completed`, with side branches
 - Custom errors everywhere instead of revert strings.
 - Arbiter rulings are fully transparent: both split amounts are validated
   on-chain to sum to the remaining balance.
+- Known limitation: a disputed escrow exits only via the arbiter's
+  `resolveDispute` — if the arbiter never acts, the unreleased balance
+  stays locked in `Disputed`. The expiry refund (`refundAfterExpiry`)
+  applies only while the escrow is `Funded`, so it does not apply once
+  a dispute is raised. There is no dispute timeout, arbiter-replacement,
+  or mutual-reset path in this version.
 
 ## Tests
 
